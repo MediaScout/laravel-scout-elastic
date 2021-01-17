@@ -2,10 +2,10 @@
 
 namespace Tamayo\LaravelScoutElastic\Engines;
 
-use Laravel\Scout\Builder;
-use Laravel\Scout\Engines\Engine;
 use Elasticsearch\Client as Elastic;
 use Illuminate\Database\Eloquent\Collection;
+use Laravel\Scout\Builder;
+use Laravel\Scout\Engines\Engine;
 
 class ElasticsearchEngine extends Engine
 {
@@ -39,6 +39,8 @@ class ElasticsearchEngine extends Engine
             return;
         }
 
+        $this->initIndex($models->first()->searchableAs(), $models->first()->searchableMapping());
+
         $params['body'] = [];
 
         $models->each(function ($model) use (&$params) {
@@ -46,7 +48,6 @@ class ElasticsearchEngine extends Engine
                 'update' => [
                     '_id' => $model->getScoutKey(),
                     '_index' => $model->searchableAs(),
-                    '_type' => get_class($model),
                 ]
             ];
             $params['body'][] = [
@@ -263,5 +264,17 @@ class ElasticsearchEngine extends Engine
         return collect($builder->orders)->map(function ($order) {
             return [$order['column'] => $order['direction']];
         })->toArray();
+    }
+
+    protected function initIndex(string $name, array $mapping = null)
+    {
+        if (!$this->elastic->indices()->exists(['index' => $name])) {
+            $params = [
+                'index' => $name,
+                'body'  => $mapping,
+            ];
+
+            $this->elastic->indices()->create($params);
+        }
     }
 }
